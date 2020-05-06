@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -16,7 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/proactionhq/proaction/internal/event"
 	"github.com/proactionhq/proaction/pkg/githubapi"
-	progresstypes "github.com/proactionhq/proaction/pkg/progress/types"
+	"github.com/proactionhq/proaction/pkg/logger"
 	"github.com/proactionhq/proaction/pkg/scanner"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/spf13/cobra"
@@ -40,6 +41,10 @@ func ScanCmd() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			v := viper.GetViper()
+
+			if v.GetBool("verbose") {
+				logger.SetDebug()
+			}
 
 			if err := event.Init(v); err != nil {
 				if v.GetBool("debug") {
@@ -87,6 +92,7 @@ func ScanCmd() *cobra.Command {
 	cmd.Flags().Bool("debug", false, "when set, echo debug statements")
 	cmd.Flags().Bool("diff", false, "when set, instead of writing the file, just show a diff")
 	cmd.Flags().Bool("silent", false, "when set, the spinners will not be displayed")
+	cmd.Flags().Bool("verbose", false, "when true, verbose logging")
 
 	return cmd
 }
@@ -96,7 +102,7 @@ func ScanCmd() *cobra.Command {
 func scanWorkflow(workflowContent []byte, filename string) (int, error) {
 	v := viper.GetViper()
 
-	s, err := scanner.NewScanner(string(workflowContent))
+	s, err := scanner.NewScanner(workflowContent)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to create scanner")
 	}
@@ -104,13 +110,14 @@ func scanWorkflow(workflowContent []byte, filename string) (int, error) {
 	if len(v.GetStringSlice("check")) == 0 {
 		s.EnableAllChecks()
 	} else {
-		s.EnableChecks(v.GetStringSlice("check"))
+		panic("not implemented")
+		// s.EnableChecks(v.GetStringSlice("check"))
 	}
 
 	stopChan := make(chan bool)
 	stoppedChan := make(chan bool)
 	go func() {
-		lineCount := 0
+		// lineCount := 0
 		for {
 			select {
 			case <-stopChan:
@@ -121,44 +128,44 @@ func scanWorkflow(workflowContent []byte, filename string) (int, error) {
 					continue
 				}
 
-				for i := 0; i < lineCount; i++ {
-					fmt.Printf("\033[A")
-				}
+				// for i := 0; i < lineCount; i++ {
+				// 	fmt.Printf("\033[A")
+				// }
 
-				maxCheckNameLength := 0
-				for _, checkName := range s.EnabledChecks {
-					if len(checkName) > maxCheckNameLength {
-						maxCheckNameLength = len(checkName)
-					}
-				}
+				// maxCheckNameLength := 0
+				// for _, checkName := range s.EnabledChecks {
+				// 	if len(checkName) > maxCheckNameLength {
+				// 		maxCheckNameLength = len(checkName)
+				// 	}
+				// }
 
-				for _, checkName := range s.EnabledChecks {
-					fmt.Printf("\033[2K\r%s ", checkName)
+				// for _, checkName := range s.EnabledChecks {
+				// 	fmt.Printf("\033[2K\r%s ", checkName)
 
-					for i := len(checkName); i < maxCheckNameLength; i++ {
-						fmt.Printf(" ")
-					}
+				// 	for i := len(checkName); i < maxCheckNameLength; i++ {
+				// 		fmt.Printf(" ")
+				// 	}
 
-					// show the status of each check
-					progress, ok := s.Progress[checkName]
-					if ok {
-						steps, stepStatus := progress.Get()
-						for _, s := range steps {
-							if status, ok := stepStatus[s]; ok {
-								if status == progresstypes.ScannerStatusCompleted {
-									fmt.Printf(" [%s ✓] ", s)
-								} else if status == progresstypes.ScannerStatusRunning {
-									fmt.Printf(" [%s ⟳] ", s)
-								} else if status == progresstypes.ScannerStatusPending {
-									fmt.Printf(" [%s …] ", s)
-								}
-							}
-						}
-					}
-					fmt.Printf("\n")
-				}
+				// 	// show the status of each check
+				// 	progress, ok := s.Progress[checkName]
+				// 	if ok {
+				// 		steps, stepStatus := progress.Get()
+				// 		for _, s := range steps {
+				// 			if status, ok := stepStatus[s]; ok {
+				// 				if status == progresstypes.ScannerStatusCompleted {
+				// 					fmt.Printf(" [%s ✓] ", s)
+				// 				} else if status == progresstypes.ScannerStatusRunning {
+				// 					fmt.Printf(" [%s ⟳] ", s)
+				// 				} else if status == progresstypes.ScannerStatusPending {
+				// 					fmt.Printf(" [%s …] ", s)
+				// 				}
+				// 			}
+				// 		}
+				// 	}
+				// 	fmt.Printf("\n")
+				// }
 
-				lineCount = len(s.EnabledChecks)
+				// lineCount = len(s.EnabledChecks)
 
 			}
 		}
@@ -184,10 +191,10 @@ func scanWorkflow(workflowContent []byte, filename string) (int, error) {
 		fmt.Printf("%s\n", s.GetOutput())
 	}
 
-	if s.OriginalContent != s.RemediatedContent {
+	if !bytes.Equal(s.OriginalContent, s.RemediatedContent) {
 		if v.GetBool("diff") {
 			dmp := diffmatchpatch.New()
-			charsA, charsB, lines := dmp.DiffLinesToChars(s.OriginalContent, s.RemediatedContent)
+			charsA, charsB, lines := dmp.DiffLinesToChars(string(s.OriginalContent), string(s.RemediatedContent))
 			diffs := dmp.DiffMain(charsA, charsB, false)
 			diffs = dmp.DiffCharsToLines(diffs, lines)
 			fmt.Println(dmp.DiffPrettyText(dmp.DiffCleanupEfficiency(diffs)))
