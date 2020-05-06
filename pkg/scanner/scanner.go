@@ -77,17 +77,19 @@ func (s *Scanner) ScanWorkflow() error {
 	}
 
 	// execute collect phase
-	outputs := []*collecttypes.Output{}
+	combinedOutputs := []*collecttypes.Output{}
 	for _, collector := range collectors {
 		outputs, err := collect.Collect(collector, s.OriginalContent)
 		if err != nil {
 			return errors.Wrap(err, "failed to collect collector")
 		}
 
-		outputs = append(outputs, outputs...)
+		combinedOutputs = append(combinedOutputs, outputs...)
 	}
 
-	fmt.Printf("%#v\n", outputs)
+	for _, o := range combinedOutputs {
+		fmt.Printf("%#v\n", o)
+	}
 
 	return nil
 }

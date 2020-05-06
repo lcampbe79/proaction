@@ -9,10 +9,15 @@ type Collector struct {
 }
 
 type Output struct {
-	Owner      string `yaml:"owner"`
-	Repo       string `yaml:"repo"`
-	IsPublic   bool   `yaml:"isPublic"`
-	IsArchived bool   `yaml:"isArchived"`
+	Owner         string   `yaml:"owner"`
+	Repo          string   `yaml:"repo"`
+	IsPublic      bool     `yaml:"isPublic"`
+	IsArchived    bool     `yaml:"isArchived"`
+	DefaultBranch string   `yaml:"defaultBranch"`
+	IsFork        bool     `yaml:"isFork"`
+	Forks         []string `yaml:"forks,omitempty"`
+	Parent        string   `yaml:"parent,omitempty"`
+	Head          string   `yaml:"head"`
 }
 
 func (c Collector) Equals(other Collector) bool {

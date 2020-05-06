@@ -14,17 +14,18 @@ func Collect(collector types.Collector, workflowContent []byte) ([]*types.Output
 
 	combinedOutputs := []*types.Output{}
 	for _, input := range inputs {
-		outputs, err := parseInput(collector.Parser, input, collector.Collectors)
+		output, err := parseInput(collector.Parser, input, collector.Collectors)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse input")
 		}
 
-		combinedOutputs = append(combinedOutputs, outputs...)
+		combinedOutputs = append(combinedOutputs, output)
 	}
-	return nil, nil
+
+	return combinedOutputs, nil
 }
 
-func parseInput(parser string, input string, collectors []string) ([]*types.Output, error) {
+func parseInput(parser string, input string, collectors []string) (*types.Output, error) {
 	if parser == "githubref" {
 		return parseGitHubRef(input, collectors)
 	}
